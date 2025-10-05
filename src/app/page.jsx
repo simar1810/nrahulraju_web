@@ -4,6 +4,7 @@ import ConsultationSection from "@/components/ConsultationSecction";
 import DetailedTestimonials from "@/components/DetailedTestimonals";
 import HeroSection from "@/components/HeroSection";
 import PaymentBanner from "@/components/paymentbanner";
+import ProgramsGrid from "@/components/ProgramsGrid";
 import SocialProofSection from "@/components/SocialProof";
 import VideoTestimonials from "@/components/VideoTestimonials";
 
@@ -13,7 +14,8 @@ export default function HomePage() {
       <HeroSection />
       <DetailedTestimonials />
       <SocialProofSection />
-      <PaymentBanner />
+      <ProgramsGrid />
+      {/* <PaymentBanner /> */}
       <BonusSection />
       {/* <VideoTestimonials /> */}
       <ClientTestimonialsGrid />

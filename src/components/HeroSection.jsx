@@ -1,10 +1,9 @@
 "use client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { CheckCircle, Loader2, Zap, User } from "lucide-react";
+import { CheckCircle, Loader2 } from "lucide-react";
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 
 export default function HeroSection() {
   const [formData, setFormData] = useState({
@@ -13,10 +12,8 @@ export default function HeroSection() {
     email: "",
   });
   const [isLoading, setIsLoading] = useState(false);
-  const [scriptLoaded, setScriptLoaded] = useState(false);
-  const [showPaymentModal, setShowPaymentModal] = useState(false);
-  const [mobileStep, setMobileStep] = useState(1);
-  const formSectionRef = useRef(null);
+  const [showThankYou, setShowThankYou] = useState(false);
+  const [registrationSuccess, setRegistrationSuccess] = useState(null);
 
   const benefitItems = [
     {
@@ -37,26 +34,6 @@ export default function HeroSection() {
   ];
 
   const totalValue = benefitItems.reduce((sum, item) => sum + item.price, 0);
-
-  useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://checkout.razorpay.com/v1/checkout.js";
-    script.async = true;
-    script.onload = () => setScriptLoaded(true);
-    script.onerror = () => {
-      alert("Failed to load payment gateway. Please refresh and try again.");
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      const existingScript = document.querySelector(
-        'script[src="https://checkout.razorpay.com/v1/checkout.js"]'
-      );
-      if (existingScript) {
-        document.body.removeChild(existingScript);
-      }
-    };
-  }, []);
 
   const validateForm = () => {
     if (!formData.name.trim()) {
@@ -82,216 +59,42 @@ export default function HeroSection() {
     return true;
   };
 
-  const createOrder = async () => {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/razorpay/create-order`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            amount: 499, // ₹999 in rupees (backend will multiply by 100)
-            note: { client: "nrahulraju" },
-            type: "nrahulraju",
-          }),
-        }
-      );
-
-      if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`Failed to create order: ${res.status} - ${errorText}`);
-      }
-
-      const orderData = await res.json();
-
-      // Check if the response has a data property (common API pattern)
-      const order = orderData.data || orderData;
-
-      return order;
-    } catch (error) {
-      throw error;
-    }
-  };
-
-  const verifyPayment = async (paymentData) => {
-    try {
-      if (!paymentData.razorpay_payment_id) {
-        throw new Error("Missing payment ID");
-      }
-
-      const hasAllParams =
-        paymentData.razorpay_order_id &&
-        paymentData.razorpay_payment_id &&
-        paymentData.razorpay_signature;
-
-      if (!hasAllParams) {
-        alert(
-          "Payment received! Your payment ID is: " +
-          paymentData.razorpay_payment_id +
-          "\n\nPlease contact support with this payment ID for manual verification."
-        );
-        setFormData({ name: "", email: "", phoneNumber: "" });
-        setShowPaymentModal(false);
-        return;
-      }
-
-      const verificationPayload = {
-        name: formData.name,
-        email: formData.email || null,
-        phoneNumber: formData.phoneNumber || null,
-        clientId: "nrahulraju",
-        frontEndClient: "nrahulraju",
-        razorpay_order_id: paymentData.razorpay_order_id,
-        razorpay_payment_id: paymentData.razorpay_payment_id,
-        razorpay_signature: paymentData.razorpay_signature,
-        amount: 499, // Amount in rupees (backend will handle conversion)
-      };
-
-      const verifyRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/razorpay/verify-order`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(verificationPayload),
-        }
-      );
-
-      if (!verifyRes.ok) {
-        const errorText = await verifyRes.text();
-        throw new Error(
-          `Verification failed: ${verifyRes.status} - ${errorText}`
-        );
-      }
-
-      const data = await verifyRes.json();
-
-      if (data.success) {
-        // Call registration API after successful payment
-        try {
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/register-user`, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              name: formData.name,
-              email: formData.email,
-              phoneNumber: formData.phoneNumber,
-              frontEndClient: "nrahulraju",
-            }),
-          });
-        } catch (registrationError) {
-          console.error("Registration API Error:", registrationError);
-          // Continue with success flow even if registration fails
-        }
-
-        alert(
-          "🎉 Payment Successful! Welcome to nrahulraju Fitness Community! Check your email/phone for access details."
-        );
-        setFormData({ name: "", email: "", phoneNumber: "" });
-        setShowPaymentModal(false);
-      } else {
-        alert(
-          `❌ Payment verification failed: ${data.message || "Unknown error"}`
-        );
-      }
-    } catch (error) {
-      alert("❌ Payment verification failed. Please contact support.");
-    }
-  };
-
-  const openRazorpay = async () => {
-    if (!scriptLoaded) {
-      alert(
-        "Payment gateway is still loading. Please wait a moment and try again."
-      );
-      return;
-    }
-
+  const handleRegistration = async () => {
     if (!validateForm()) {
-      return;
-    }
-
-    if (!process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID) {
-      alert("Payment configuration error. Please contact support.");
       return;
     }
 
     setIsLoading(true);
 
     try {
-      const order = await createOrder();
-
-      if (!order.id || !order.amount) {
-        throw new Error("Failed to create valid order");
-      }
-
-      const options = {
-        key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,
-        amount: order.amount,
-        currency: order.currency || "INR",
-        name: "nrahulraju Wellness",
-        description: "Premium Fitness Community Membership",
-        image: "/photos/nrrLogo.png",
-        order_id: order.id,
-        handler: async function (response) {
-          if (!response.razorpay_payment_id) {
-            alert(
-              "Payment verification failed: No payment ID received. Please try again."
-            );
-            setIsLoading(false);
-            return;
-          }
-
-          const paymentData = {
-            razorpay_payment_id: response.razorpay_payment_id,
-            razorpay_order_id: response.razorpay_order_id || order?.id,
-            razorpay_signature: response.razorpay_signature || null,
-          };
-
-          try {
-            await verifyPayment(paymentData);
-          } catch (error) {
-            alert(
-              "Payment verification failed. Please contact support with payment ID: " +
-              response.razorpay_payment_id
-            );
-          } finally {
-            setIsLoading(false);
-          }
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/user/register-user`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
         },
-        prefill: {
+        body: JSON.stringify({
           name: formData.name,
           email: formData.email,
-          contact: formData.phoneNumber,
-        },
-        notes: {
-          membership_type: "nrahulraju",
-          validity: "lifetime",
-        },
-        theme: {
-          color: "#059669",
-        },
-        modal: {
-          ondismiss: function () {
-            setIsLoading(false);
-          },
-        },
-      };
-
-      // @ts-ignore
-      const rzp = new window.Razorpay(options);
-
-      rzp.on("payment.failed", function (response) {
-        alert(
-          `Payment failed: ${response.error.description || "Unknown error"}`
-        );
-        setIsLoading(false);
+          phoneNumber: formData.phoneNumber,
+          frontEndClient: "nrahulraju",
+        }),
       });
 
-      rzp.open();
+      if (response.ok) {
+        setRegistrationSuccess({
+          name: formData.name,
+          email: formData.email,
+          phoneNumber: formData.phoneNumber
+        });
+        setFormData({ name: "", email: "", phoneNumber: "" });
+        setShowThankYou(true);
+      } else {
+        alert("❌ Registration failed. Please try again or contact support.");
+      }
     } catch (error) {
-      alert("Failed to initiate payment. Please try again.");
+      console.error("Registration Error:", error);
+      alert("❌ Registration failed. Please try again or contact support.");
+    } finally {
       setIsLoading(false);
     }
   };
@@ -303,21 +106,14 @@ export default function HeroSection() {
       [name]: value,
     }));
   };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-
-    // Validate form first
-    if (!validateForm()) {
-      return;
-    }
-
-    // Show payment modal and reset step
-    setShowPaymentModal(true);
-    setMobileStep(1);
+    await handleRegistration();
   };
 
   return (
-    <section className="w-full py-10 md:py-16 bg-[#eeece0] text-center">
+    <section id="hero-section" className="w-full py-10 md:py-16 bg-[#eeece0] text-center">
       <div className="max-w-screen-xl left mx-auto px-4 md:px-6">
         {/* Logo */}
         <div className="flex md:justify-start justify-center md:-left-10 md:-ml-35 items-center mb-7">
@@ -355,7 +151,7 @@ export default function HeroSection() {
 
           <div className="w-full bg-[var(--card)] p-6 md:p-8 rounded-lg shadow-lg border border-[var(--border)] text-left">
             <h2 className="text-xl md:text-2xl font-bold text-[var(--primary-foreground)] mb-6 text-center md:text-left">
-              Kindly fill the form to grab free personalised one to one consultation
+              Get FREE Consultation - Fill the form below for personalized one-to-one guidance
             </h2>
             <form className="grid gap-4" onSubmit={handleSubmit}>
               <Input
@@ -387,9 +183,17 @@ export default function HeroSection() {
               <div className="relative w-full">
                 <Button
                   type="submit"
+                  disabled={isLoading}
                   className="w-full bg-[var(--secondary)] hover:bg-[var(--accent)] text-[var(--accent-foreground)] px-6 py-3 relative rounded-md text-lg font-semibold"
                 >
-                  Buy Now
+                  {isLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                      Registering...
+                    </>
+                  ) : (
+                    "Get FREE Consultation"
+                  )}
                 </Button>
                 <div className="px-3 absolute -top-2 -right-2 py-0.5 text-xs font-bold text-white bg-red-500 rounded-full shadow-md">
                   Limited time offer
@@ -422,164 +226,124 @@ export default function HeroSection() {
           </div>
         </div>
 
-        {/* Payment Modal */}
-        {showPaymentModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" style={{zIndex: 9999}}>
-            <div className="bg-white rounded-2xl p-4 md:p-8 w-full max-w-3xl max-h-[90vh] overflow-y-auto flex flex-col md:flex-row gap-4 md:gap-8 relative">
-              {/* Cross button at top right */}
+        {/* Thank You Modal */}
+        {showThankYou && registrationSuccess && (
+          <div className="fixed inset-0 bg-black/60  flex items-center justify-center z-50 p-4" style={{zIndex: 10000}}>
+            <div className="bg-white rounded-2xl p-6 w-full max-w-lg text-center relative shadow-2xl">
+              {/* Close button */}
               <button
                 onClick={() => {
-                  setShowPaymentModal(false);
-                  setMobileStep(1);
+                  setShowThankYou(false);
+                  setRegistrationSuccess(null);
                 }}
-                className="absolute top-2 right-4 z-10 text-slate-500 hover:text-slate-900 text-3xl"
+                className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 text-2xl"
                 aria-label="Close"
               >
-                &times;
+                ×
               </button>
               
-              {/* Mobile step indicator */}
-              <div className="md:hidden flex items-center justify-center mb-4">
-                <div className="flex items-center space-x-2">
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    mobileStep === 1 ? 'bg-[#008080] text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    1
+              {/* Success Icon */}
+              <div className="mb-6">
+                <div className="w-16 h-16 bg-gradient-to-r from-emerald-500 to-teal-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-8 h-8 text-white" />
+                </div>
+                
+                <h2 className="text-2xl font-bold text-slate-800 mb-2">
+                  Registration Successful! 🎉
+                </h2>
+                
+                <p className="text-slate-600 mb-4">
+                  Thank you, <span className="font-semibold text-emerald-600">{registrationSuccess.name}</span>!
+                </p>
+              </div>
+
+              {/* Consultation Details */}
+              <div className="bg-gradient-to-r from-emerald-50 to-teal-50 rounded-xl p-4 mb-6 border border-emerald-200">
+                <h3 className="text-lg font-bold text-slate-800 mb-1">
+                  Free Consultation Booked
+                </h3>
+                <p className="text-emerald-600 font-semibold mb-1">
+                  Personalized 1:1 Session
+                </p>
+                <p className="text-sm text-slate-600">
+                  We'll contact you within 24 hours
+                </p>
+              </div>
+
+              {/* Next Steps */}
+              <div className="text-left mb-6">
+                <h4 className="text-base font-semibold text-slate-800 mb-3 text-center">
+                  What happens next?
+                </h4>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Consultation call scheduled</p>
+                      <p className="text-xs text-slate-600">Our team will call you within 24 hours</p>
+                    </div>
                   </div>
-                  <div className="w-8 h-1 bg-gray-200 rounded"></div>
-                  <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-                    mobileStep === 2 ? 'bg-[#008080] text-white' : 'bg-gray-200 text-gray-600'
-                  }`}>
-                    2
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Personalized fitness assessment</p>
+                      <p className="text-xs text-slate-600">We'll analyze your goals and create a custom plan</p>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <CheckCircle className="w-3 h-3 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-slate-800">Program recommendations</p>
+                      <p className="text-xs text-slate-600">Get expert advice on the best program for you</p>
+                    </div>
                   </div>
                 </div>
               </div>
 
-              {/* Left: Payment Details */}
-              <div className={`${mobileStep === 1 ? "block" : "hidden"} md:block flex-1 min-w-[300px] pr-8 relative`}>
-                <div className="w-full h-64 md:min-h-[400px] relative">
-                  <Image
-                    alt=""
-                    src="/photos/IMG-20251001-WA0012.jpg"
-                    className="min-h-full min-w-full object-cover"
-                    fill
-                  />
-                </div>
-                
-                {/* Mobile continue button */}
-                <div className="md:hidden mt-6">
-                  <Button
-                    onClick={() => setMobileStep(2)}
-                    className="w-full bg-gradient-to-r from-[#008080] to-[#00C8C8] hover:from-[#006666] hover:to-[#00A8A8] text-white"
-                  >
-                    Continue to Details
-                  </Button>
-                </div>
-              </div>
-              
-              {/* Right: User Details */}
-              <div
-                ref={formSectionRef}
-                className={`${mobileStep === 2 ? "block" : "hidden"} md:block flex-1 min-w-[300px] md:border-l border-gray-200 md:pl-8 pl-0`}
-              >
-                <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-                    <User className="w-5 h-5" />
-                    Your Details
-                  </h3>
-                  <button
-                    onClick={() => setMobileStep(1)}
-                    className="md:hidden text-sm text-[#008080] hover:text-[#006666] font-medium"
-                  >
-                    ← Back
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <Label
-                      htmlFor="hs_name"
-                      className="text-sm font-medium text-slate-700"
-                    >
-                      Full Name *
-                    </Label>
-                    <Input
-                      id="hs_name"
-                      name="name"
-                      type="text"
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Enter your full name"
-                      className="mt-1"
-                      required
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="hs_email"
-                      className="text-sm font-medium text-slate-700"
-                    >
-                      Email Address
-                    </Label>
-                    <Input
-                      id="hs_email"
-                      name="email"
-                      type="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="your@email.com"
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label
-                      htmlFor="hs_phone"
-                      className="text-sm font-medium text-slate-700"
-                    >
-                      Phone Number
-                    </Label>
-                    <Input
-                      id="hs_phone"
-                      name="phoneNumber"
-                      type="tel"
-                      value={formData.phoneNumber}
-                      onChange={handleChange}
-                      placeholder="10-digit number"
-                      maxLength={10}
-                      className="mt-1"
-                    />
-                  </div>
-                </div>
-                <p className="text-xs text-slate-500 mt-4">
-                  * Name is required. Please provide either email or phone
-                  number.
-                </p>
-                <div
-                  className={`flex gap-3 mt-6 ${mobileStep === 2 ? "flex" : "hidden"
-                    } md:flex`}
+            
+
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <Button
+                  onClick={() => {
+                    setShowThankYou(false);
+                    setRegistrationSuccess(null);
+                  }}
+                  className="flex-1 bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white px-4 py-2 rounded-lg text-sm font-semibold"
                 >
-                  <Button
-                    onClick={openRazorpay}
-                    disabled={isLoading || !scriptLoaded}
-                    className="flex-1 bg-gradient-to-r from-[#008080] to-[#00C8C8] hover:from-[#006666] hover:to-[#00A8A8] text-white"
-                  >
-                    {isLoading ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Zap className="w-4 h-4 mr-2" />
-                        Pay ₹499 & Join Now
-                      </>
-                    )}
-                  </Button>
+                  Continue Exploring
+                </Button>
+                <Button
+                  onClick={() => {
+                    const programsSection = document.querySelector('[id*="program"]');
+                    if (programsSection) {
+                      programsSection.scrollIntoView({ behavior: 'smooth' });
+                    }
+                    setShowThankYou(false);
+                    setRegistrationSuccess(null);
+                  }}
+                  variant="outline"
+                  className="flex-1 border-emerald-500 text-emerald-600 hover:bg-emerald-50 px-4 py-2 rounded-lg text-sm font-semibold"
+                >
+                  View Programs
+                </Button>
+              </div>
+
+              {/* Contact Info */}
+              <div className="mt-4 pt-4 border-t border-slate-200">
+                <p className="text-xs text-slate-500 mb-1">
+                  Questions about your consultation?
+                </p>
+                <div className="flex items-center justify-center gap-3 text-xs">
+                  <span className="text-slate-600">📞 +91 98765 43210</span>
+                  <span className="text-slate-600">✉️ support@nrahulraju.com</span>
                 </div>
-                {!scriptLoaded && (
-                  <p className="mt-2 text-sm text-slate-500 text-center">
-                    Loading payment gateway...
-                  </p>
-                )}
               </div>
             </div>
           </div>
