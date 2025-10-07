@@ -77,13 +77,20 @@ export default function PaymentBanner() {
 
   const createOrder = async () => {
     try {
+      console.error("Creating order with:", {
+        amount: 499,
+        note: { client: "nrahulraju" },
+        type: "nrahulraju",
+        apiUrl: process.env.NEXT_PUBLIC_API_URL
+      });
+
       const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/razorpay/create-order`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            amount: 499, // ₹999 in rupees (backend will multiply by 100)
+            amount: 499, // ₹499 in rupees (backend will multiply by 100)
             note: { client: "nrahulraju" },
             type: "nrahulraju",
           }),
@@ -92,16 +99,20 @@ export default function PaymentBanner() {
 
       if (!res.ok) {
         const errorText = await res.text();
+        console.error("Order creation failed:", res.status, errorText);
         throw new Error(`Failed to create order: ${res.status} - ${errorText}`);
       }
 
       const orderData = await res.json();
+      console.error("Order creation response:", orderData);
 
       // Check if the response has a data property (common API pattern)
       const order = orderData.data || orderData;
+      console.error("Final order object:", order);
 
       return order;
     } catch (error) {
+      console.error("Order creation error:", error);
       throw error;
     }
   };
@@ -223,6 +234,13 @@ export default function PaymentBanner() {
       if (!order.id || !order.amount) {
         throw new Error("Failed to create valid order");
       }
+
+      console.log("Razorpay Key ID:", process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID);
+      console.log("Order details:", {
+        id: order.id,
+        amount: order.amount,
+        currency: order.currency
+      });
 
       const options = {
         key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID,

@@ -149,7 +149,7 @@ export default function ProgramsGrid() {
           body: JSON.stringify({
             amount: program.amount,
             note: { client: "nrahulraju", program: program.id },
-            type: program.id,
+            type: "nrahulraju",
           }),
         }
       );
@@ -199,11 +199,10 @@ export default function ProgramsGrid() {
         razorpay_payment_id: paymentData.razorpay_payment_id,
         razorpay_signature: paymentData.razorpay_signature,
         amount: program.amount,
-        program: program.id,
       };
 
       const verifyRes = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/razorpay/verify-order`,
+        `${process.env.NEXT_PUBLIC_API_URL}/razorpay/verify-payment`,
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -232,7 +231,6 @@ export default function ProgramsGrid() {
               email: formData.email,
               phoneNumber: formData.phoneNumber,
               frontEndClient: "nrahulraju",
-              program: program.id,
             }),
           });
         } catch (registrationError) {
