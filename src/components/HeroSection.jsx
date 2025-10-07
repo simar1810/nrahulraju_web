@@ -130,14 +130,14 @@ export default function HeroSection() {
         <div className="md:-mt-45">
           <div className="bg-[var(--secondary)] text-[var(--secondary-foreground)] text-center p-4 rounded-2xl mb-8 max-w-4xl mx-auto">
             <p className="text-xl md:text-2xl font-semibold">
-              One decision. 11 days. A lighter, fresher YOU
+              One decision. Transform your life. A healthier, stronger YOU
             </p>
           </div>
 
           {/* Heading */}
           <h1 className="text-3xl md:text-5xl lg:text-6xl font-bold text-[var(--primary-foreground)] mb-8 leading-tight">
-            See the glow, feel the difference in just 11 days - Transform with our
-            ₹499 Detox Plan.
+            See the glow, feel the difference - Transform with our
+            personalized fitness programs.
           </h1>
 
           {/* Highlight Buttons */}
