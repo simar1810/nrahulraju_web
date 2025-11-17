@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls",
+      "delegate_permission/common.get_login_creds"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.wellnessz.nrr",
+      "sha256_cert_fingerprints": [
+        "35:06:6D:92:9D:21:93:8E:E6:A8:00:5C:16:A6:44:98:F2:BB:31:97:60:29:B4:C7:6A:8B:52:FC:77:DE:DA:A9"
+      ]
+    }
+  }
+]
